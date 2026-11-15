@@ -23,6 +23,12 @@ L_REPOSO = (MINLEN + MAXLEN) / 2       # 150 px
 BOLAS_DISPONIBLES = 14
 META_Y = 600.0     # altura de la caneria (a medir del juego real)
 Y_SUELO = 0.0      # altura del terreno (a medir del juego real)
+# Tolerancia absoluta (px) del filtro de alcance en REGLAS_T4. Con k=2 los
+# largos son justo los bordes MINLEN y MAXLEN, y el redondeo de
+# interseccion() deja dist(P, ancla) en 99.999... o 200.000...1: sin
+# tolerancia esas acciones se descartan apenas la estructura se aleja de
+# coordenadas enteras (p. ej., el K4 asentado por la fisica).
+TOL_ALCANCE = 1e-6
 
 
 # --------------------------------------------------------------------------
@@ -239,6 +245,7 @@ class Reglas:
     max_acciones: int | None      # None = sin tope
     usar_apice: bool              # isosceles con apice() en vez de interseccion()
     holgura: bool = False         # distancia >= R_BOLA entre bolas y uniones
+    tol_alcance: float = 0.0      # tolerancia absoluta (px) del filtro de alcance
 
 
 # fase1_paso_a_paso.py: isosceles, sin suelo (ver Bugs conocidos)
@@ -262,9 +269,12 @@ REGLAS_GYM_T2 = Reglas(suelo=True, alcance=False, cruce_estricto=True,
 # distintos, por eso NO hay descarte de duplicados. Sin tope: la
 # codificacion de acciones sera estable. Cruce permisivo + holgura: la
 # holgura descarta los solapamientos colineales que se_cruzan no ve.
+# Tolerancia de alcance solo aqui: los presets de Taller 2 la mantienen en
+# 0 para reproducir su evidencia (las salidas del notebook cambian con ella).
 REGLAS_T4 = Reglas(suelo=True, alcance=True, cruce_estricto=False,
                    envolvente=True, tol_duplicado=None,
-                   max_acciones=None, usar_apice=False, holgura=True)
+                   max_acciones=None, usar_apice=False, holgura=True,
+                   tol_alcance=TOL_ALCANCE)
 
 
 def generar_acciones(estado, k=1, reglas=REGLAS_FASE1):
@@ -301,7 +311,8 @@ def generar_acciones(estado, k=1, reglas=REGLAS_FASE1):
                 continue
 
             if reglas.alcance and not all(
-                    MINLEN <= dist(P, pos[m]) <= MAXLEN for m in (i, j)):
+                    MINLEN - reglas.tol_alcance <= dist(P, pos[m])
+                    <= MAXLEN + reglas.tol_alcance for m in (i, j)):
                 descartes["alcance"] += 1
                 continue
 

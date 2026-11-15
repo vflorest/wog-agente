@@ -157,17 +157,42 @@ def test_reglas_t4():
     assert REGLAS_T4.tol_duplicado is None
     assert REGLAS_T4.max_acciones is None
     assert not REGLAS_T4.usar_apice
+    assert REGLAS_T4.tol_alcance == 1e-6
 
 
 def test_presets_taller2_sin_holgura():
     assert not (REGLAS_FASE1.holgura or REGLAS_NOTEBOOK.holgura
                 or REGLAS_GYM_T2.holgura)
+    assert (REGLAS_FASE1.tol_alcance == REGLAS_NOTEBOOK.tol_alcance
+            == REGLAS_GYM_T2.tol_alcance == 0.0)
 
 
 @pytest.mark.parametrize("k, n", [(1, 3), (2, 12), (3, 27)])
 def test_t4_k4(k, n):
     acc, _ = generar_acciones(Estado.inicial(), k, REGLAS_T4)
     assert len(acc) == n
+
+
+def test_t4_k4_asentado():
+    # El K4 asentado por la fisica (baja ~0.75 px) debe conservar las 12
+    # acciones de k=2: depende de REGLAS_T4.tol_alcance.
+    from wog.fisica import (K_ESCALA, MAXFORCE, colocar_bola, crear_espacio,
+                            estabilizar, unir)
+    ideal = Estado.inicial()
+    space = crear_espacio()
+    cuerpos = {n: colocar_bola(space, (x * K_ESCALA, y * K_ESCALA),
+                               fija=n in (0, 1))
+               for n, (x, y) in ideal.pos.items()}
+    uniones = [u for a, b in ideal.G.edges
+               if (u := unir(space, cuerpos[a], cuerpos[b]))]
+    r = estabilizar(space, uniones, MAXFORCE)
+    assert r.estable and not r.rotas
+    pos = {n: (c.position.x / K_ESCALA, c.position.y / K_ESCALA)
+           for n, c in cuerpos.items()}
+    assert pos != ideal.pos
+    acc, _ = generar_acciones(Estado(ideal.G, pos, ideal.restantes), 2,
+                              REGLAS_T4)
+    assert len(acc) == 12
 
 
 # --------------------------------------------------------------------------
