@@ -63,11 +63,11 @@ def crear_espacio():
     return space
 
 
-def colocar_bola(space, pos, fija=False):
+def colocar_bola(space, pos, fija=False, masa=MASA):
     if fija:
         cuerpo = pymunk.Body(body_type=pymunk.Body.STATIC)
     else:
-        cuerpo = pymunk.Body(MASA, pymunk.moment_for_circle(MASA, 0, R_BOLA))
+        cuerpo = pymunk.Body(masa, pymunk.moment_for_circle(masa, 0, R_BOLA))
     cuerpo.position = pos
     forma = pymunk.Circle(cuerpo, R_BOLA)
     forma.friction, forma.elasticity = 0.15, 0.1     # OGBall, og_ball.cpp
@@ -76,21 +76,21 @@ def colocar_bola(space, pos, fija=False):
     return cuerpo
 
 
-def unir(space, a, b):
-    """Resorte amortiguado. Pymunk exige un cuerpo dinamico; una union
-    entre dos fijos no tiene efecto fisico y se omite."""
+def unir(space, a, b, k=K_RESORTE, c=C_DAMP):
+    """Resorte amortiguado de rigidez k y damping c. Pymunk exige un cuerpo
+    dinamico; una union entre dos fijos no tiene efecto fisico y se omite."""
     if a.body_type != pymunk.Body.DYNAMIC and b.body_type != pymunk.Body.DYNAMIC:
         return None
     j = pymunk.DampedSpring(a, b, (0, 0), (0, 0),
                             a.position.get_distance(b.position),
-                            K_RESORTE, C_DAMP)
+                            k, c)
     space.add(j)
     return j
 
 
 def tension(j):
-    """F = k * |largo_actual - largo_reposo|"""
-    return abs(K_RESORTE * (j.a.position.get_distance(j.b.position) - j.rest_length))
+    """F = k * |largo_actual - largo_reposo|, con la rigidez propia de la union."""
+    return abs(j.stiffness * (j.a.position.get_distance(j.b.position) - j.rest_length))
 
 
 def dinamicos(space):
