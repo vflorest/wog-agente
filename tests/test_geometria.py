@@ -1,11 +1,14 @@
 """Pruebas unitarias de wog.geometria, fijadas contra la evidencia de Taller 2."""
 
+from dataclasses import replace
+
+import networkx as nx
 import pytest
 
 from wog.geometria import (
     L_REPOSO, REGLAS_FASE1, REGLAS_GYM_T2, REGLAS_NOTEBOOK, REGLAS_T4,
-    Estado, apice, envolvente, generar_acciones, interseccion, largos,
-    se_cruzan,
+    Estado, apice, dist_segmento, envolvente, generar_acciones,
+    holgura_suficiente, interseccion, largos, se_cruzan,
 )
 
 
@@ -149,12 +152,94 @@ def test_notebook_tabla_k(k, n0, n1):
 
 def test_reglas_t4():
     assert REGLAS_T4.suelo and REGLAS_T4.alcance and REGLAS_T4.envolvente
+    assert REGLAS_T4.cruce_estricto is False
+    assert REGLAS_T4.holgura
     assert REGLAS_T4.tol_duplicado is None
     assert REGLAS_T4.max_acciones is None
     assert not REGLAS_T4.usar_apice
-    # modo de cruce pendiente de decision: el generador se niega a correr
-    with pytest.raises(ValueError):
-        generar_acciones(Estado.inicial(), 2, REGLAS_T4)
+
+
+def test_presets_taller2_sin_holgura():
+    assert not (REGLAS_FASE1.holgura or REGLAS_NOTEBOOK.holgura
+                or REGLAS_GYM_T2.holgura)
+
+
+@pytest.mark.parametrize("k, n", [(1, 3), (2, 12), (3, 27)])
+def test_t4_k4(k, n):
+    acc, _ = generar_acciones(Estado.inicial(), k, REGLAS_T4)
+    assert len(acc) == n
+
+
+# --------------------------------------------------------------------------
+# Holgura: bola nueva P anclada en A=(0,0), B=(150,0) con largos 150, lado +1
+# -> P = (75, 129.9). Cada escenario agrega una union que pasa por P o
+# muy cerca, en un caso que se_cruzan permisivo no detecta o detecta solo
+# en parte.
+# --------------------------------------------------------------------------
+A, B = (0.0, 0.0), (150.0, 0.0)
+P = interseccion(A, B, 150.0, 150.0, +1)
+UX, UY = P[0] / 150.0, P[1] / 150.0            # direccion A -> P
+
+
+def escenario(extra_pos, extra_aristas):
+    pos = {0: A, 1: B, **extra_pos}
+    G = nx.Graph()
+    G.add_nodes_from(pos)
+    G.add_edges_from([(0, 1), *extra_aristas])
+    return Estado(G, pos, 5)
+
+
+ESCENARIOS = {
+    # union 2-3 horizontal que pasa exactamente por P: contacto en T
+    "T": escenario({2: (P[0] - 100, P[1]), 3: (P[0] + 100, P[1])}, [(2, 3)]),
+    # union 0-2 sobre la recta A->P: la union nueva P-A queda superpuesta
+    "colineal superpuesto": escenario({2: (2 * P[0], 2 * P[1])}, [(0, 2)]),
+    # igual, pero la union 0-2 desviada para pasar a 0.5 px de P
+    "casi colineal 0.5 px": escenario({2: (2 * P[0] - UY, 2 * P[1] + UX)},
+                                      [(0, 2)]),
+}
+
+
+def tiene_accion_objetivo(acc):
+    return any(a[:2] == (0, 1) and a[4] == +1 for a in acc)
+
+
+@pytest.mark.parametrize("nombre", ESCENARIOS)
+def test_holgura_predicado(nombre):
+    e = ESCENARIOS[nombre]
+    assert not holgura_suficiente(P, 0, 1, e.pos, e.G.edges)
+
+
+@pytest.mark.parametrize("nombre", ESCENARIOS)
+def test_holgura_descarta_en_generar_acciones(nombre):
+    # Se aislan los otros filtros que podrian atrapar el caso (cruce
+    # estricto, sin envolvente) para que el descarte sea por holgura.
+    e = ESCENARIOS[nombre]
+    aislada = replace(REGLAS_T4, cruce_estricto=True, envolvente=False)
+    sin, _ = generar_acciones(e, 1, replace(aislada, holgura=False))
+    con, d = generar_acciones(e, 1, aislada)
+    assert tiene_accion_objetivo(sin)
+    assert not tiene_accion_objetivo(con)
+    assert d["holgura"] >= 1
+
+
+@pytest.mark.parametrize("nombre", ESCENARIOS)
+def test_t4_descarta_escenarios(nombre):
+    acc, _ = generar_acciones(ESCENARIOS[nombre], 1, REGLAS_T4)
+    assert not tiene_accion_objetivo(acc)
+
+
+def test_holgura_con_espacio_suficiente():
+    # union 2-3 horizontal a 20 px por encima de P: holgura 20 >= 15
+    e = escenario({2: (P[0] - 100, P[1] + 20), 3: (P[0] + 100, P[1] + 20)},
+                  [(2, 3)])
+    assert holgura_suficiente(P, 0, 1, e.pos, e.G.edges)
+
+
+def test_dist_segmento():
+    assert dist_segmento((1, 1), (0, 0), (2, 0)) == pytest.approx(1)
+    assert dist_segmento((3, 0), (0, 0), (2, 0)) == pytest.approx(1)
+    assert dist_segmento((1, 0), (0, 0), (0, 0)) == pytest.approx(1)
 
 
 def test_sin_bolas_no_hay_acciones():

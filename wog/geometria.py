@@ -97,6 +97,34 @@ def se_cruzan(p1, p2, p3, p4, estricto=False):
     return o1 != o2 and o3 != o4
 
 
+def dist_segmento(P, A, B):
+    """Distancia del punto P al segmento A-B."""
+    dx, dy = B[0] - A[0], B[1] - A[1]
+    L2 = dx * dx + dy * dy
+    if L2 == 0:
+        return dist(P, A)
+    t = max(0.0, min(1.0, ((P[0] - A[0]) * dx + (P[1] - A[1]) * dy) / L2))
+    return dist(P, (A[0] + t * dx, A[1] + t * dy))
+
+
+def holgura_suficiente(P, i, j, pos, aristas, minimo=R_BOLA):
+    """
+    Holgura entre la bola nueva P (anclada a i y j) y la estructura:
+      - P queda a >= minimo de toda union existente;
+      - cada union nueva (P-i, P-j) queda a >= minimo de toda bola
+        existente distinta de sus dos extremos.
+    Cubre los casos que se_cruzan no detecta: contacto en T, segmentos
+    colineales superpuestos y casi colineales.
+    """
+    if any(dist_segmento(P, pos[u], pos[v]) < minimo for u, v in aristas):
+        return False
+    for ancla in (i, j):
+        if any(dist_segmento(pos[m], P, pos[ancla]) < minimo
+               for m in pos if m != ancla):
+            return False
+    return True
+
+
 def largos(k):
     """k valores de largo de union, equiespaciados en [MINLEN, MAXLEN]."""
     if k <= 1:
@@ -201,18 +229,16 @@ class Reglas:
     """
     Filtros del generador de acciones. Orden de aplicacion: alcance
     geometrico (P existe), suelo, alcance [MINLEN, MAXLEN], solapamiento,
-    cruce, envolvente, duplicado y, al final, tope.
-
-    cruce_estricto=None significa "modo no decidido": generar_acciones se
-    niega a correr hasta que se fije.
+    cruce, holgura, envolvente, duplicado y, al final, tope.
     """
     suelo: bool
     alcance: bool
-    cruce_estricto: bool | None
+    cruce_estricto: bool
     envolvente: bool
     tol_duplicado: float | None   # None = sin descarte de duplicados
     max_acciones: int | None      # None = sin tope
     usar_apice: bool              # isosceles con apice() en vez de interseccion()
+    holgura: bool = False         # distancia >= R_BOLA entre bolas y uniones
 
 
 # fase1_paso_a_paso.py: isosceles, sin suelo (ver Bugs conocidos)
@@ -234,10 +260,11 @@ REGLAS_GYM_T2 = Reglas(suelo=True, alcance=False, cruce_estricto=True,
 # Entorno del Taller 4. La accion es (i, j, Li, Lj, lado): dos acciones con
 # la misma posicion pero distintos anclajes dan grafos (y tensiones)
 # distintos, por eso NO hay descarte de duplicados. Sin tope: la
-# codificacion de acciones sera estable. Modo de cruce: PENDIENTE.
-REGLAS_T4 = Reglas(suelo=True, alcance=True, cruce_estricto=None,
+# codificacion de acciones sera estable. Cruce permisivo + holgura: la
+# holgura descarta los solapamientos colineales que se_cruzan no ve.
+REGLAS_T4 = Reglas(suelo=True, alcance=True, cruce_estricto=False,
                    envolvente=True, tol_duplicado=None,
-                   max_acciones=None, usar_apice=False)
+                   max_acciones=None, usar_apice=False, holgura=True)
 
 
 def generar_acciones(estado, k=1, reglas=REGLAS_FASE1):
@@ -249,11 +276,8 @@ def generar_acciones(estado, k=1, reglas=REGLAS_FASE1):
       acciones  : lista de (i, j, Li, Lj, lado, P)
       descartes : conteo por filtro
     """
-    if reglas.cruce_estricto is None:
-        raise ValueError("Reglas sin modo de cruce decidido (cruce_estricto=None)")
-
     descartes = {"alcance": 0, "suelo": 0, "solapa": 0, "cruce": 0,
-                 "envolvente": 0, "duplicado": 0}
+                 "holgura": 0, "envolvente": 0, "duplicado": 0}
     if estado.restantes == 0:
         return [], descartes
 
@@ -289,6 +313,11 @@ def generar_acciones(estado, k=1, reglas=REGLAS_FASE1):
             if any(se_cruzan(a, b, pos[u], pos[v], reglas.cruce_estricto)
                    for a, b in nuevas for u, v in estado.G.edges):
                 descartes["cruce"] += 1
+                continue
+
+            if reglas.holgura and not holgura_suficiente(
+                    P, i, j, pos, estado.G.edges):
+                descartes["holgura"] += 1
                 continue
 
             if borde is not None and dentro(P, borde):

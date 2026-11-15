@@ -34,7 +34,7 @@ Proyecto individual del curso Agentes Inteligentes (UTFSM). Agente que juega Wor
 uv, Python 3.12, networkx, pymunk, gymnasium. macOS Apple Silicon.
 
 ## Código
-- `wog/geometria.py`: primitivas, `Estado` y un único `generar_acciones` con filtros según un objeto `Reglas`. Presets: `REGLAS_FASE1`, `REGLAS_NOTEBOOK`, `REGLAS_GYM_T2` (reproducen Taller 2) y `REGLAS_T4` (entorno futuro; modo de cruce pendiente, el generador se niega a correr con él).
+- `wog/geometria.py`: primitivas, `Estado` y un único `generar_acciones` con filtros según un objeto `Reglas`. Presets: `REGLAS_FASE1`, `REGLAS_NOTEBOOK`, `REGLAS_GYM_T2` (reproducen Taller 2) y `REGLAS_T4` (entorno futuro: suelo, alcance, cruce permisivo, holgura, envolvente; k largos con `interseccion`; sin dedup ni tope).
 - `wog/fisica.py`: parámetros, espacio, bolas, uniones, tensión, `estabilizar` con ruptura.
 - `wog/env.py`: pendiente (MDP del Taller 4).
 - Scripts de Taller 2 importan de `wog`. El notebook queda intacto como entregable.
@@ -47,6 +47,7 @@ uv, Python 3.12, networkx, pymunk, gymnasium. macOS Apple Silicon.
   - Segmentos colineales superpuestos (parcial, contenido, idénticos): **ninguno de los dos modos detecta el cruce**, ambos devuelven `False`. Con todas las orientaciones en 0, `o1 != o2` es falso.
   - Solo difieren en el contacto en "T" (extremo de un segmento en el interior del otro): permisivo `True`, estricto `False`.
   - La tolerancia de colinealidad es absoluta (1e-9 sobre el producto cruz, en px²), así que en la práctica solo atrapa colinealidad exacta.
+  - **Resuelto en `REGLAS_T4`** con el filtro `holgura` (distancia ≥ R_BOLA de la bola nueva a toda unión existente y de cada unión nueva a toda bola existente que no sea su extremo). Descarta el contacto en T, los colineales superpuestos y los casi colineales. Los presets `REGLAS_FASE1`, `REGLAS_GYM_T2` y `REGLAS_NOTEBOOK` lo mantienen desactivado por compatibilidad con la evidencia del Taller 2.
 
 ## Reglas
 - No cambies decisiones de diseño sin preguntar.
