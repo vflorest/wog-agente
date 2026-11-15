@@ -27,14 +27,14 @@ Proyecto individual del curso Agentes Inteligentes (UTFSM). Agente que juega Wor
 - γ = 1, horizonte 14.
 
 ## Física
-- Parámetros derivados de balls.xml en `prueba_pymunk.py` (escala 1 u = 10 px, umbral de ruptura = 12 pesos de bola).
+- Parámetros derivados de balls.xml en `wog/fisica.py` (escala 1 u = 10 px, umbral de ruptura = 12 pesos de bola).
 - La construcción SIEMPRE es incremental: construir todo de una vez produce picos de tensión falsos.
 
 ## Stack
 uv, Python 3.12, networkx, pymunk, gymnasium. macOS Apple Silicon.
 
 ## Código
-- `wog/geometria.py`: primitivas, `Estado` y un único `generar_acciones` con filtros según un objeto `Reglas`. Presets: `REGLAS_FASE1`, `REGLAS_NOTEBOOK`, `REGLAS_GYM_T2` (reproducen Taller 2) y `REGLAS_T4` (entorno futuro: suelo, alcance, cruce permisivo, holgura, envolvente; k largos con `interseccion`; sin dedup ni tope).
+- `wog/geometria.py`: primitivas, `Estado` y un único `generar_acciones` con filtros según un objeto `Reglas`. Presets: `REGLAS_FASE1`, `REGLAS_NOTEBOOK`, `REGLAS_GYM_T2` (reproducen Taller 2) y `REGLAS_T4` (entorno futuro: suelo, alcance, cruce permisivo, holgura, envolvente; k largos con `interseccion`; sin dedup ni tope). Con k=2 da 12 acciones en s₀ (K4), lo que confirma el valor del Taller 4 (fijado en `test_t4_k4`).
 - `wog/fisica.py`: parámetros, espacio, bolas, uniones, tensión, `estabilizar` con ruptura.
 - `wog/env.py`: pendiente (MDP del Taller 4).
 - Scripts de Taller 2 importan de `wog`. El notebook queda intacto como entregable.
