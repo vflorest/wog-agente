@@ -33,6 +33,21 @@ Proyecto individual del curso Agentes Inteligentes (UTFSM). Agente que juega Wor
 ## Stack
 uv, Python 3.12, networkx, pymunk, gymnasium. macOS Apple Silicon.
 
+## Código
+- `wog/geometria.py`: primitivas, `Estado` y un único `generar_acciones` con filtros según un objeto `Reglas`. Presets: `REGLAS_FASE1`, `REGLAS_NOTEBOOK`, `REGLAS_GYM_T2` (reproducen Taller 2) y `REGLAS_T4` (entorno futuro; modo de cruce pendiente, el generador se niega a correr con él).
+- `wog/fisica.py`: parámetros, espacio, bolas, uniones, tensión, `estabilizar` con ruptura.
+- `wog/env.py`: pendiente (MDP del Taller 4).
+- Scripts de Taller 2 importan de `wog`. El notebook queda intacto como entregable.
+- `uv run pytest`: los scripts deben reproducir `evidencia/*.txt` byte a byte y el notebook sus salidas guardadas.
+
+## Bugs conocidos (no corregidos, a propósito)
+- `fase1_paso_a_paso.py` (`REGLAS_FASE1`) no filtra el suelo: acepta la bola en (75.0, −129.9), anclada en (0,1) lado −1.
+- `apice(A,B,L,σ)` e `interseccion(A,B,L,L,σ)` son el mismo punto matemático pero no bit a bit: difieren hasta ~1e-13 (≈9% de pares al azar). Ej.: A=(0,0), B=(150,150), σ=+1 → `apice` (0.0, 150.0), `interseccion` (−1.4e-14, 150.0). `REGLAS_FASE1` usa `apice` para conservar la salida.
+- `se_cruzan` tiene dos modos (`estricto=False` en fase1/notebook, `True` en gym):
+  - Segmentos colineales superpuestos (parcial, contenido, idénticos): **ninguno de los dos modos detecta el cruce**, ambos devuelven `False`. Con todas las orientaciones en 0, `o1 != o2` es falso.
+  - Solo difieren en el contacto en "T" (extremo de un segmento en el interior del otro): permisivo `True`, estricto `False`.
+  - La tolerancia de colinealidad es absoluta (1e-9 sobre el producto cruz, en px²), así que en la práctica solo atrapa colinealidad exacta.
+
 ## Reglas
 - No cambies decisiones de diseño sin preguntar.
 - El código no es fuente de verdad sobre el diseño; el MDP de arriba sí.
