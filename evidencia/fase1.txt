@@ -1,0 +1,126 @@
+
+====================================================================
+  PASO 0 - PARAMETROS DEL MODELO
+====================================================================
+Tomados de balls.xml (assets originales de World of Goo):
+    radio de bola        : 15 px
+    union: largo minimo  : 100 px
+    union: largo maximo  : 200 px  <- alcance por bola
+    largo de reposo      : 150 px
+    bolas disponibles    : 14
+
+====================================================================
+  PASO 1 - ESTADO INICIAL
+====================================================================
+El nivel 1 arranca con 4 bolas, todas conectadas entre si.
+Eso es un grafo completo K4: C(4,2) = 6 uniones.
+Los 4 lados del cuadrado, mas las 2 diagonales.
+
+    bolas colocadas : 4      uniones: 6
+    bolas restantes : 14
+    altura maxima   : 150.0 px (meta 600 px)
+    conteo de Laman : E=6, 2V-3=5, exceso=1 -> rigida
+    grafo planar    : True
+    h(n)            : 2.25 bolas
+
+  El exceso de Laman vale 1: el cuadrado sin diagonales
+  seria un mecanismo (se deforma en rombo). Con las dos
+  diagonales queda rigido y con una union de sobra.
+
+====================================================================
+  PASO 2 - GENERACION DE ACCIONES
+====================================================================
+Una accion es: elegir un par de bolas ya colocadas y anclar
+una bola nueva formando triangulo. El 'lado' (+1/-1) elige a
+que lado de ese par queda la bola nueva.
+
+Se filtra en tres etapas, de mas barata a mas cara:
+
+    candidatos brutos (pares x 2 lados) : 12
+    descartados por alcance             : 0
+    descartados por solapamiento        : 4
+    descartados por cruce de uniones    : 4
+    ACCIONES VALIDAS                    : 4
+
+====================================================================
+  PASO 3 - INSPECCION DE LAS ACCIONES VALIDAS
+====================================================================
+    accion 0: anclar en (0,1) lado -1 -> posicion (   75.0,  -129.9)
+    accion 1: anclar en (0,3) lado +1 -> posicion ( -129.9,    75.0)
+    accion 2: anclar en (1,2) lado -1 -> posicion (  279.9,    75.0)
+    accion 3: anclar en (2,3) lado -1 -> posicion (   75.0,   279.9)
+
+====================================================================
+  PASO 4 - APLICAR UNA ACCION
+====================================================================
+Elegimos la que mas altura gana: (2,3) lado -1
+
+    bolas colocadas : 5      uniones: 8
+    bolas restantes : 13
+    altura maxima   : 279.9 px (meta 600 px)
+    conteo de Laman : E=8, 2V-3=7, exceso=1 -> rigida
+    grafo planar    : True
+    h(n)            : 1.60 bolas
+
+  Se agrego 1 nodo y 2 aristas: extension de Henneberg tipo I.
+  El exceso de Laman NO cambio. La rigidez se preserva.
+
+====================================================================
+  PASO 5 - CONSTRUCCION GREEDY (heuristica: ganar altura)
+====================================================================
+Repetimos eligiendo siempre la accion que sube mas.
+
+paso  accion         altura  ramif.  V   E   2V-3 exc  h(n)
+--------------------------------------------------------------
+ 2    ( 2, 4) lado-1   279.9    5     6   10  9     1   1.60
+ 3    ( 4, 5) lado+1   409.8    7     7   12  11    1   0.95
+ 4    ( 4, 6) lado+1   409.8    8     8   14  13    1   0.95
+ 5    ( 6, 7) lado-1   539.7    10    9   16  15    1   0.30
+ 6    ( 6, 8) lado-1   539.7    11    10  18  17    1   0.30
+ 7    ( 8, 9) lado+1   669.6    13    11  20  19    1   0.00
+ 8    ( 8,10) lado+1   669.6    14    12  22  21    1   0.00
+
+====================================================================
+  PASO 6 - LECTURA DE LOS RESULTADOS
+====================================================================
+bolas usadas: 8   sobrantes: 6
+
+Tres cosas que se ven en la tabla:
+
+  1. La ramificacion CRECE con la profundidad. Cada bola nueva
+     habilita nuevos pares de anclaje. Por eso el arbol de
+     busqueda se ensancha en vez de angostarse.
+
+  2. El exceso de Laman se mantiene constante. La estructura
+     es siempre rigida por construccion, asi que el colapso
+     (con fisica) sera falla de resistencia, no de rigidez.
+
+  3. h(n) baja mas lento de lo que sugiere el alcance maximo:
+     el greedy gana altura cada DOS bolas, no cada una. La
+     heuristica subestima el costo real, o sea es ADMISIBLE,
+     que es lo que A* necesita para garantizar optimalidad.
+
+  Y notar que el greedy construye un zigzag fino y vertical:
+  justo el tipo de estructura que colapsaria con fisica activa.
+  La heuristica de altura es enganosa, como anticipamos.
+
+====================================================================
+  PASO 7 - LA MISMA BASE, PERO TRIANGULAR
+====================================================================
+El nivel de prueba del clon OpenGOO arranca con un triangulo.
+El modelo no esta cableado a un caso particular:
+
+    bolas colocadas : 3      uniones: 3
+    bolas restantes : 14
+    altura maxima   : 129.9 px (meta 600 px)
+    conteo de Laman : E=3, 2V-3=3, exceso=0 -> rigida
+    grafo planar    : True
+    h(n)            : 2.35 bolas
+
+  Exceso 0: el triangulo es MINIMAMENTE rigido (sin redundancia).
+  El K4 tiene exceso 1: tolera perder una union.
+  En ambos casos Henneberg preserva la rigidez.
+
+====================================================================
+  FIN
+====================================================================

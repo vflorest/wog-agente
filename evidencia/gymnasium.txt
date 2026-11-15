@@ -1,0 +1,86 @@
+====================================================================
+  1. VERIFICACION DE LA API DE GYMNASIUM
+====================================================================
+  gymnasium        : 1.3.0
+  action_space     : Discrete(256)
+  observation_space:
+      adyacencia  : MultiBinary(324)
+      nodos       : MultiBinary(18)
+      posiciones  : Box(-10000.0, 10000.0, (18, 2), float32)
+      restantes   : Discrete(15)
+
+  reset() devuelve observacion con claves: ['adyacencia', 'nodos', 'posiciones', 'restantes']
+  observacion valida segun el espacio declarado: True
+
+====================================================================
+  2. ESTADO OBSERVABLE TRAS reset()
+====================================================================
+  bolas colocadas : 4
+  uniones         : 6
+  bolas restantes : 14
+  altura maxima   : 150.0 px  (meta 600)
+  acciones validas: 12 de 256 posibles
+
+====================================================================
+  3. EL PROBLEMA DEL ESPACIO DE ACCIONES VARIABLE
+====================================================================
+  El espacio declarado es fijo, pero las acciones realmente validas
+  cambian en cada paso. La mascara resuelve esa diferencia.
+
+  paso  validas   declaradas   % util
+  ----------------------------------------
+  0     12        256          4.7%
+  1     11        256          4.3%
+  2     14        256          5.5%
+  3     14        256          5.5%
+  4     19        256          7.4%
+  5     21        256          8.2%
+
+  Sin mascara, un agente elegiria acciones invalidas la mayor parte
+  del tiempo. MaskablePPO (SB3-contrib) consume exactamente este
+  vector para restringir la distribucion de la politica.
+
+====================================================================
+  4. EPISODIO COMPLETO CON POLITICA ALEATORIA ENMASCARADA
+====================================================================
+  paso  accion   validas   altura    restantes  r
+  ------------------------------------------------------
+  1     10       17        246.8     13         0
+  2     10       24        246.8     12         0
+  3     12       30        246.8     11         0
+  4     8        33        246.8     10         0
+  5     10       34        246.8     9          0
+  6     1        31        246.8     8          0
+  7     2        24        246.8     7          0
+  8     0        25        246.8     6          0
+  9     4        31        343.6     5          0
+  10    25       24        343.6     4          0
+  11    15       25        343.6     3          0
+  12    22       24        361.2     2          0
+  13    12       28        361.2     1          0
+  14    16       0         361.2     0          0
+
+  episodio terminado en 14 pasos
+  alcanzo la meta : False
+  recompensa total: 0
+
+====================================================================
+  5. VARIAS CORRIDAS
+====================================================================
+  episodios            : 20
+  pasos promedio       : 13.8
+  altura media final   : 497.7 px
+  altura maxima lograda: 696.4 px  (meta 600)
+  episodios exitosos   : 1/20
+
+  Una politica aleatoria casi nunca llega. La recompensa es dispersa,
+  como se anticipo en el Taller 1, y por eso hace falta busqueda
+  informada primero y aprendizaje con shaping despues.
+
+====================================================================
+  CONCLUSION
+====================================================================
+  El estado del ambiente se observa y las acciones se ejecutan
+  programaticamente mediante la API estandar de Gymnasium.
+  El espacio de acciones variable se resuelve con enmascaramiento,
+  compatible con MaskablePPO de SB3-contrib.

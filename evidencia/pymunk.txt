@@ -1,0 +1,93 @@
+====================================================================
+  PARAMETROS DERIVADOS DE balls.xml (escala Box2D, 1 u = 10 px)
+====================================================================
+  radio de bola      : 1.50 u   (15 px)
+  largo de reposo    : 15.00 u  (150 px)
+  masa (towermass)   : 0.30 u
+  gravedad           : -10.0
+  peso de una bola   : 3.00
+  frecuencia / zeta  : 1.5 Hz / 0.9   (hardcodeados en OpenGOO)
+  -> rigidez k       : 26.65
+  -> damping c       : 5.09
+  umbral de ruptura  : 36.00  (12 pesos de bola)
+
+  Nota: balls.xml declara maxforce=1000, pero en unidades internas
+  del juego que se desconocen, porque OpenGOO nunca lee ese valor.
+  Por eso el umbral se expresa como multiplo del peso de una bola.
+
+====================================================================
+  CASO 1 - Estructura K4 anclada al suelo
+====================================================================
+  bolas dinamicas: 2   uniones: 5
+  [K4] estabilizo en el paso 61 (1.02 s simulados)
+  [K4] ninguna union se rompio
+
+  ESTADO OBSERVABLE (lo que leeria el agente):
+    bola 0: pos=( 15.02,  16.42)   vel=0.001
+    bola 1: pos=( -0.02,  16.42)   vel=0.001
+  TENSION POR UNION:
+    union 0: F=  2.14  (  5.9% del umbral)
+    union 1: F=  0.86  (  2.4% del umbral)
+    union 2: F=  2.14  (  5.9% del umbral)
+    union 3: F=  1.21  (  3.4% del umbral)
+    union 4: F=  1.21  (  3.4% del umbral)
+
+====================================================================
+  CASO 2 - Tension segun el largo del voladizo (construccion incremental)
+====================================================================
+  Cada bola se coloca y se deja estabilizar antes de la siguiente,
+  igual que en el modelo por turnos del proyecto.
+
+  bolas   uniones   F pico     en pesos de bola
+  ------------------------------------------------
+  1       2         4.24       1.4
+  2       4         16.05      5.4
+  3       6         29.22      9.7
+  4       8         45.12      15.0
+  5       10        61.56      20.5
+  6       12        78.91      26.3
+  7       14        90.44      30.1
+  8       16        90.44      30.1
+
+  La tension crece de forma monotona con el largo del voladizo.
+  Construyendo la misma estructura de golpe el pico NO es monotono:
+  domina el transitorio del impacto y rompe uniones que una
+  estructura asentada soportaria. De ahi que la construccion deba
+  ser incremental, que es exactamente el modelo por turnos elegido.
+
+====================================================================
+  CASO 3 - Efecto del umbral de ruptura
+====================================================================
+  El umbral es el parametro NO OBSERVABLE del que depende el optimo.
+
+  umbral              max bolas antes de colapsar
+  --------------------------------------------------
+   4 pesos ( 12.0)   1
+   8 pesos ( 24.0)   2
+  12 pesos ( 36.0)   3
+  16 pesos ( 48.0)   4
+  24 pesos ( 72.0)   5
+  32 pesos ( 96.0)   8+
+
+  Un mismo problema geometrico admite estructuras distintas segun
+  este parametro. Es lo planteado en el Taller 1: el optimo no es
+  un dato del problema, hay que estimarlo.
+
+====================================================================
+  CASO 4 - Sin umbral de ruptura: el comportamiento de OpenGOO
+====================================================================
+  voladizo de 8 bolas, sin aplicar maxforce
+  tension pico     : 90.44  (30.1 pesos de bola)
+  uniones rotas    : 0
+  con umbral de 12 pesos habria roto: SI
+
+  Misma estructura y misma fisica, pero sin leer maxforce la union
+  se estira sin limite y nunca se rompe. Ese es el comportamiento
+  de OpenGOO, y por eso no puede representar el modo de falla.
+
+====================================================================
+  CONCLUSION
+====================================================================
+  Pymunk permite simular la estructura, leer posiciones, velocidades
+  y tensiones, y modelar la ruptura por umbral de fuerza.
+  Los tres son requisitos del proyecto que OpenGOO no cubre.
