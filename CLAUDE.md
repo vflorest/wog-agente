@@ -34,9 +34,9 @@ Proyecto individual del curso Agentes Inteligentes (UTFSM). Agente que juega Wor
 uv, Python 3.12, networkx, pymunk, gymnasium. macOS Apple Silicon.
 
 ## Código
-- `wog/geometria.py`: primitivas, `Estado` y un único `generar_acciones` con filtros según un objeto `Reglas`. Presets: `REGLAS_FASE1`, `REGLAS_NOTEBOOK`, `REGLAS_GYM_T2` (reproducen Taller 2) y `REGLAS_T4` (entorno futuro: suelo, alcance, cruce permisivo, holgura, envolvente; k largos con `interseccion`; sin dedup ni tope). Con k=2 da 12 acciones en s₀ (K4), lo que confirma el valor del Taller 4 (fijado en `test_t4_k4`).
+- `wog/geometria.py`: primitivas, `Estado` y un único `generar_acciones` con filtros según un objeto `Reglas`. Presets: `REGLAS_FASE1`, `REGLAS_NOTEBOOK`, `REGLAS_GYM_T2` (reproducen Taller 2) y `REGLAS_T4` (entorno futuro: suelo, alcance, cruce permisivo, holgura, envolvente; k largos con `interseccion`; sin dedup ni tope). Con k=2 da 12 acciones en s₀ (K4), lo que confirma el valor del Taller 4 (fijado en `test_t4_k4`). `REGLAS_T4` tiene `tol_alcance` = 1e-6 px (con k=2 los largos son los bordes de [MINLEN, MAXLEN]); los presets de Taller 2 la dejan en 0.
 - `wog/fisica.py`: parámetros, espacio, bolas, uniones, tensión, `estabilizar` con ruptura.
-- `wog/env.py`: pendiente (MDP del Taller 4).
+- `wog/env.py`: `GooPhysicsEnv` (MDP del Taller 4). Acción con índice estable `((par(i,j)·k+iℓi)·k+iℓj)·2+iσ` (1224 con k=2); W = m ~ Binomial(n, p_carga=0.2, provisional) bolas en nodos dinámicos (por grado o uniforme), probada sobre una copia del espacio; altura = centro de la bola más alta; `clone_state`/`restore_state` con un solo deepcopy de (espacio, cuerpos, uniones).
 - Scripts de Taller 2 importan de `wog`. El notebook queda intacto como entregable.
 - `uv run pytest`: los scripts deben reproducir `evidencia/*.txt` byte a byte y el notebook sus salidas guardadas.
 
