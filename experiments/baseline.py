@@ -7,6 +7,7 @@ Uso:
     uv run python experiments/baseline.py astar         # cota geometrica
     uv run python experiments/baseline.py barrido       # grilla x 200 seeds
     uv run python experiments/baseline.py sensibilidad  # theta y carga
+    uv run python experiments/baseline.py estructuras   # figuras finales
     uv run python experiments/baseline.py todo
 
 Salidas en experiments/resultados/.
@@ -20,6 +21,7 @@ Convenciones:
 """
 
 import argparse
+import copy
 import csv
 import json
 import math
@@ -38,8 +40,8 @@ import matplotlib.pyplot as plt                           # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from wog.busqueda import a_estrella                       # noqa: E402
-from wog.env import GooPhysicsEnv, Theta                  # noqa: E402
-from wog.fisica import MAXFORCE                           # noqa: E402
+from wog.env import NODOS_FIJOS, GooPhysicsEnv, Theta     # noqa: E402
+from wog.fisica import MAXFORCE, estabilizar, tension     # noqa: E402
 from wog.geometria import (                               # noqa: E402
     BOLAS_DISPONIBLES, DEFINICIONES_ESBELTEZ, META_Y, R_BOLA, Estado,
     esbeltez,
@@ -58,7 +60,10 @@ GRILLA = {
 }
 SENS_UMBRAL = (0.75, 1.0, 1.25)          # factores sobre MAXFORCE
 SENS_P_CARGA = (0.2, 0.4)
-SENS_E_MAX = (3.0, 4.0, 4.5, math.inf)   # solo D1
+SENS_POLITICAS = ["aleatoria"] + [("t4", "apoyo", e) for e in
+                                   (3.0, 4.0, 4.5, math.inf)] \
+    + [("t4", "tercio", e) for e in (1.0, 2.5)]
+SENS_REF = "D1 e_max=∞"                    # referencia de los Δ pareados
 
 # Paleta categorica de referencia (modo claro), en orden fijo.
 C = {"azul": "#2a78d6", "naranja": "#eb6834", "aqua": "#1baf7a",
@@ -520,73 +525,70 @@ def figura_colapsos(sel):
 
 
 # --------------------------------------------------------------------------
-# 4. Sensibilidad a theta y a la carga (solo D1)
+# 4. Sensibilidad a theta y a la carga
 # --------------------------------------------------------------------------
 def sensibilidad(n_boot=5000):
     t0 = time.perf_counter()
-    rng = np.random.default_rng(0)
     filas = []
     for f_u in SENS_UMBRAL:
         for p in SENS_P_CARGA:
-            eps = {"aleatoria": correr("aleatoria", f_umbral=f_u, p_carga=p)}
-            for e_max in SENS_E_MAX:
-                eps[e_max] = correr(("t4", "apoyo", e_max), f_umbral=f_u,
-                                    p_carga=p)
-            r_inf = np.array([ep["recompensa"] for ep in eps[math.inf]])
-            for clave, lista in eps.items():
+            eps = {nombre_sens(pol): correr(pol, f_umbral=f_u, p_carga=p)
+                   for pol in SENS_POLITICAS}
+            r_ref = np.array([ep["recompensa"] for ep in eps[SENS_REF]])
+            for k, (clave, lista) in enumerate(eps.items()):
                 s = resumir(lista)
-                # diferencia pareada por seed contra e_max = inf (bootstrap)
-                r = np.array([ep["recompensa"] for ep in lista])
-                d = r - r_inf
-                idx = rng.integers(0, len(d), (n_boot, len(d)))
-                bs = d[idx].mean(axis=1)
+                # diferencia pareada por seed contra D1 e_max = inf, con IC
+                # bootstrap; generador propio por celda (reproducible)
+                rng = np.random.default_rng([int(100 * f_u), int(10 * p), k])
+                d = np.array([ep["recompensa"] for ep in lista]) - r_ref
+                bs = d[rng.integers(0, len(d), (n_boot, len(d)))].mean(axis=1)
                 filas.append((f_u, p, clave, s, float(d.mean()),
                               tuple(np.percentile(bs, [2.5, 97.5]))))
     print(f"sensibilidad: {time.perf_counter() - t0:.0f} s")
 
-    md = ["# Sensibilidad a theta (umbral) y a la carga (p_carga), D1", "",
+    md = ["# Sensibilidad a theta (umbral) y a la carga (p_carga)", "",
           f"200 seeds por celda. umbral = factor x {MAXFORCE:g}. "
-          "Δ bolas = diferencia pareada por seed contra e_max = ∞ "
-          "(IC 95% bootstrap). Se marca con ★ una e_max finita cuyo IC "
-          "de Δ queda entero sobre 0.", "",
+          f"Δ bolas = diferencia pareada por seed contra {SENS_REF} "
+          "(IC 95% bootstrap). ★: IC de Δ entero sobre 0; ▼: entero "
+          "bajo 0.", "",
           "| umbral | p_carga | politica | exito [IC95 Wilson] | bolas μ "
-          "| Δ bolas vs ∞ [IC95] | col. propio | col. carga | meta s/bolas |",
+          f"| Δ bolas vs {SENS_REF} [IC95] | col. propio | col. carga "
+          "| meta s/bolas |",
           "|---|---|---|---|---|---|---|---|---|"]
-    supera = []
     for f_u, p, clave, s, dm, (lo, hi) in filas:
-        pol = "aleatoria" if clave == "aleatoria" else f"e_max={fmt_e(clave)}"
-        marca = ""
-        if clave not in ("aleatoria", math.inf) and lo > 0:
-            marca = " ★"
-            supera.append((f_u, p, clave, dm, lo, hi))
-        delta = "-" if clave == math.inf else \
+        marca = " ★" if lo > 0 else (" ▼" if hi < 0 else "")
+        delta = "-" if clave == SENS_REF else \
             f"{dm:+.2f} [{lo:+.2f}, {hi:+.2f}]{marca}"
-        md.append(f"| ×{f_u:g} | {p:g} | {pol} | {100 * s['exito']:.1f}% "
+        md.append(f"| ×{f_u:g} | {p:g} | {clave} | {100 * s['exito']:.1f}% "
                   f"[{100 * s['ic'][0]:.1f}, {100 * s['ic'][1]:.1f}] | "
                   f"{s['r_media']:.2f} | {delta} | "
                   f"{100 * s['causas']['colapso_propio']:.0f}% | "
                   f"{100 * s['causas']['colapso_carga']:.0f}% | "
                   f"{100 * s['causas']['meta_sin_bolas']:.0f}% |")
-    md += ["", "## ¿Alguna e_max finita supera a e_max = ∞?", ""]
-    if supera:
-        for f_u, p, e, dm, lo, hi in supera:
-            md.append(f"- Si: umbral ×{f_u:g}, p_carga {p:g}, e_max "
-                      f"{fmt_e(e)}: Δ = {dm:+.2f} bolas [{lo:+.2f}, "
-                      f"{hi:+.2f}].")
-    else:
-        md.append("- No: en ningun regimen una e_max finita tiene Δ con IC "
-                  "95% entero sobre 0.")
+
+    def respuesta(pregunta, filtro):
+        md.extend(["", f"## {pregunta}", ""])
+        sel = [f for f in filas if filtro(f[2])]
+        for f_u, p, clave, s, dm, (lo, hi) in sel:
+            veredicto = ("supera" if lo > 0 else "peor" if hi < 0
+                         else "sin diferencia significativa")
+            md.append(f"- umbral ×{f_u:g}, p_carga {p:g}, {clave}: "
+                      f"Δ = {dm:+.2f} [{lo:+.2f}, {hi:+.2f}] -> {veredicto}")
+
+    respuesta(f"¿Alguna e_max finita de D1 supera a {SENS_REF}?",
+              lambda c: c.startswith("D1") and c != SENS_REF)
+    respuesta(f"¿En que regimenes supera D2 e_max=2.5 a {SENS_REF}?",
+              lambda c: c == "D2 e_max=2.5")
     md.append("")
     escribir("sensibilidad.md", "\n".join(md) + "\n")
     with open(RESULTADOS / "sensibilidad.csv", "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["umbral_factor", "p_carga", "politica", "n", "exitos",
                     "exito", "ic_inf", "ic_sup", "r_media", "r_desv",
-                    "delta_vs_inf", "delta_ic_inf", "delta_ic_sup"]
+                    "delta_vs_ref", "delta_ic_inf", "delta_ic_sup"]
                    + [f"causa_{c}" for c in CAUSAS])
         for f_u, p, clave, s, dm, (lo, hi) in filas:
-            w.writerow([f_u, p, clave if clave == "aleatoria" else
-                        fmt_e(clave), s["n"], s["exitos"],
+            w.writerow([f_u, p, clave, s["n"], s["exitos"],
                         f"{s['exito']:.4f}", f"{s['ic'][0]:.4f}",
                         f"{s['ic'][1]:.4f}", f"{s['r_media']:.4f}",
                         f"{s['r_desv']:.4f}", f"{dm:.4f}", f"{lo:.4f}",
@@ -596,41 +598,169 @@ def sensibilidad(n_boot=5000):
     return filas
 
 
+def nombre_sens(pol):
+    if pol == "aleatoria":
+        return "aleatoria"
+    _, d, e = pol
+    return f"{'D1' if d == 'apoyo' else 'D2'} e_max={fmt_e(e)}"
+
+
 def figura_sensibilidad(filas):
-    cats = ["aleatoria"] + list(SENS_E_MAX)
+    cats = [nombre_sens(p) for p in SENS_POLITICAS]
     xs = np.arange(len(cats))
     colores = [C["azul"], C["naranja"], C["aqua"]]
-    fig, axs = plt.subplots(2, len(SENS_P_CARGA), figsize=(10, 7),
+    fig, axs = plt.subplots(2, len(SENS_P_CARGA), figsize=(12, 7.5),
                             sharey="row", sharex=True)
     for col, p in enumerate(SENS_P_CARGA):
         for k, f_u in enumerate(SENS_UMBRAL):
             fs = {f[2]: f[3] for f in filas if f[0] == f_u and f[1] == p}
-            off = (k - 1) * 0.12
+            off = (k - 1) * 0.14
             ex = np.array([fs[c]["exito"] for c in cats]) * 100
             lo = ex - np.array([fs[c]["ic"][0] for c in cats]) * 100
             hi = np.array([fs[c]["ic"][1] for c in cats]) * 100 - ex
-            axs[0, col].errorbar(xs + off, ex, yerr=[lo, hi], lw=2,
-                                 marker="o", ms=6, capsize=3,
+            axs[0, col].errorbar(xs + off, ex, yerr=[lo, hi], lw=0,
+                                 elinewidth=2, marker="o", ms=7, capsize=3,
                                  color=colores[k], mec=C["fondo"], mew=1.5,
                                  label=f"umbral ×{f_u:g}")
             r = [fs[c]["r_media"] for c in cats]
             sem = [1.96 * fs[c]["r_desv"] / math.sqrt(fs[c]["n"])
                    for c in cats]
-            axs[1, col].errorbar(xs + off, r, yerr=sem, lw=2, marker="o",
-                                 ms=6, capsize=3, color=colores[k],
-                                 mec=C["fondo"], mew=1.5)
+            axs[1, col].errorbar(xs + off, r, yerr=sem, lw=0, elinewidth=2,
+                                 marker="o", ms=7, capsize=3,
+                                 color=colores[k], mec=C["fondo"], mew=1.5)
+        for fila in (0, 1):
+            # separa la familia D2 de la D1
+            axs[fila, col].axvline(len(cats) - 2.5, color=C["tinta2"],
+                                   lw=0.8, ls=(0, (2, 3)))
         axs[0, col].set_title(f"p_carga = {p:g}: exito (IC 95% Wilson)",
                               loc="left")
         axs[1, col].set_title(f"p_carga = {p:g}: bolas (media, IC 95%)",
                               loc="left")
-        axs[1, col].set_xticks(xs, ["aleat."] + [fmt_e(e) for e in
-                                                  SENS_E_MAX])
-        axs[1, col].set_xlabel("politica (e_max, D1)")
+        axs[1, col].set_xticks(xs, [c.replace(" e_max=", "\n")
+                                    for c in cats], fontsize=8)
+        axs[1, col].set_xlabel("politica (definicion y e_max)")
+        axs[0, col].grid(axis="x", visible=False)
+        axs[1, col].grid(axis="x", visible=False)
     axs[0, 0].set_ylabel("exito (%)")
     axs[1, 0].set_ylabel("bolas")
     axs[0, 0].legend(loc="upper left", fontsize=8)
     fig.tight_layout()
     guardar(fig, "sensibilidad.png")
+
+
+# --------------------------------------------------------------------------
+# 5. Estructuras finales (la trayectoria no depende de la seed)
+# --------------------------------------------------------------------------
+def trayectoria_nominal(pol):
+    """
+    Corre la politica sin carga. La carga W se prueba sobre una copia del
+    espacio y nunca cambia el estado, asi que una politica determinista
+    construye la MISMA estructura en toda seed; la seed solo decide si (y
+    cuando) colapsa. Devuelve (env final, [(accion, regla), ...]).
+    """
+    env = GooPhysicsEnv(p_carga=0.0)
+    env.reset(seed=0)
+    pi = crear_politica(pol, 0)
+    pasos = []
+    while True:
+        a, regla = pi(env)
+        _, _, term, _, _ = env.step(a)
+        pasos.append((env.tabla[a], regla))
+        if term:
+            return env, pasos
+
+
+def fragilidad(env, m, n_sorteos=300, seed=1):
+    """P(rotura) de la estructura con m bolas de carga repartidas por grado."""
+    rng = np.random.default_rng(seed)
+    dyn = [n for n in env.G.nodes if n not in NODOS_FIJOS]
+    w = np.array([env.G.degree(n) for n in dyn], float)
+    rotas = 0
+    for _ in range(n_sorteos):
+        sp, cu, un = copy.deepcopy((env.space, env.cuerpos, env.uniones))
+        for n in rng.choice(dyn, size=m, p=w / w.sum()):
+            cu[int(n)].mass += env.theta.masa
+        rotas += bool(estabilizar(sp, un, env.theta.umbral).rotas)
+    return rotas / n_sorteos
+
+
+def estructuras():
+    casos = [(("t4", "apoyo", math.inf), "greedy: D1 e_max=∞"),
+             (("t4", "tercio", 2.5), "D2 e_max=2.5")]
+    datos, lineas = [], ["# Estructuras finales (trayectoria nominal)", "",
+                         "| politica | bolas usadas | restantes | tension "
+                         "max / umbral | P(rotura) m=1 | m=2 | m=3 | m=4 "
+                         "| E[m] al llegar |", "|---|---|---|---|---|---|"
+                         "---|---|---|"]
+    for pol, titulo in casos:
+        env, pasos = trayectoria_nominal(pol)
+        cuerpo_a_nodo = {id(c): n for n, c in env.cuerpos.items()}
+        tens = {frozenset((cuerpo_a_nodo[id(j.a)], cuerpo_a_nodo[id(j.b)])):
+                tension(j) / env.theta.umbral for j in env.uniones}
+        frag = [fragilidad(env, m) for m in (1, 2, 3, 4)]
+        datos.append((env, pasos, tens, titulo))
+        lineas.append(f"| {titulo} | {len(pasos)} | {env.restantes} | "
+                      f"{max(tens.values()):.3f} | "
+                      + " | ".join(f"{100 * f:.1f}%" for f in frag)
+                      + f" | {0.2 * env.restantes:.1f} |")
+    lineas += ["", "P(rotura | m): 300 sorteos de m bolas de carga "
+               "repartidas por grado sobre la estructura final. "
+               "E[m] = p_carga x restantes (p_carga = 0.2).", ""]
+    for env, pasos, _, titulo in datos:
+        lineas += [f"## {titulo}", "", "| paso | accion (i, j, Li, Lj, lado) "
+                   "| regla | posicion final (px) |", "|---|---|---|---|"]
+        for t, (acc, regla) in enumerate(pasos):
+            x, y = env.pos[4 + t]
+            lineas.append(f"| {t + 1} | {acc} | {regla} | "
+                          f"({x:.0f}, {y:.0f}) |")
+        lineas.append("")
+    escribir("estructuras_finales.md", "\n".join(lineas))
+    figura_estructuras(datos)
+
+
+def figura_estructuras(datos):
+    vmax = max(max(t.values()) for _, _, t, _ in datos)
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+        "tension", ["#cfe0f6", "#2a78d6", "#0d2f63"])
+    norm = matplotlib.colors.Normalize(0, vmax)
+    fig, axs = plt.subplots(1, 2, figsize=(11, 6.0), sharey=True)
+    for ax, (env, pasos, tens, titulo) in zip(axs, datos):
+        ax.axhline(META_Y, color=C["verde"], lw=1.5, ls=(0, (5, 3)))
+        ax.axhline(0, color=C["tinta2"], lw=2)
+        for (u, v), d in env.G.edges.items():
+            (x1, y1), (x2, y2) = env.pos[u], env.pos[v]
+            t = tens.get(frozenset((u, v)))
+            ax.plot([x1, x2], [y1, y2], lw=2.5, zorder=1,
+                    color=C["gris"] if t is None else cmap(norm(t)))
+        for n, (x, y) in env.pos.items():
+            base = n < 4
+            regla = None if base else pasos[n - 4][1]
+            color = (C["gris"] if base else
+                     C["naranja"] if regla != "avanzar" and regla != "llegar"
+                     else C["tinta"])
+            ax.add_patch(plt.Circle((x, y), R_BOLA, zorder=2, color=color,
+                                    ec=C["fondo"], lw=2))
+            if not base:
+                ax.text(x, y, str(n - 3), ha="center", va="center",
+                        color="white", fontsize=7, fontweight="bold",
+                        zorder=3)
+        ax.set_aspect("equal")
+        ax.set_xlim(-260, 420)
+        ax.set_ylim(-20, 680)
+        ax.set_xlabel("x (px)")
+        ax.set_title(f"{titulo}: {len(pasos)} bolas, "
+                     f"{env.restantes} restantes", loc="left")
+        ax.grid(False)
+    axs[0].set_ylabel("y (px)")
+    sm = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
+    cb = fig.colorbar(sm, ax=axs, shrink=0.6, pad=0.02)
+    cb.set_label("tension de la union / umbral (sin carga)")
+    cb.outline.set_visible(False)
+    axs[0].text(0.0, -0.2, "numeros: orden de colocacion; negro: avanzar o "
+             "llegar; naranja: asegurar; gris: K4 asentado (union entre "
+             "fijos sin tension fisica)", color=C["tinta2"], fontsize=8.5,
+                transform=axs[0].transAxes)
+    guardar(fig, "estructuras_finales.png")
 
 
 # --------------------------------------------------------------------------
@@ -651,7 +781,7 @@ def guardar(fig, nombre):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     ap.add_argument("tarea", choices=["percentiles", "astar", "barrido",
-                                      "sensibilidad", "todo"])
+                                      "sensibilidad", "estructuras", "todo"])
     args = ap.parse_args()
     t = args.tarea
     if t in ("percentiles", "todo"):
@@ -662,6 +792,8 @@ def main():
         barrido()
     if t in ("sensibilidad", "todo"):
         sensibilidad()
+    if t in ("estructuras", "todo"):
+        estructuras()
 
 
 if __name__ == "__main__":
