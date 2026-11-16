@@ -7,7 +7,9 @@ import pytest
 
 from wog.env import GooPhysicsEnv, MAX_NODOS, Theta
 from wog.fisica import MAXFORCE
-from wog.geometria import META_Y, REGLAS_T4, Estado, generar_acciones
+from wog.geometria import (
+    META_Y, REGLAS_T4, Estado, esbeltez, generar_acciones,
+)
 
 
 def iguales(o1, o2):
@@ -33,8 +35,7 @@ def mismas(t1, t2):
     assert len(t1) == len(t2)
     for (a1, o1, r1, i1), (a2, o2, r2, i2) in zip(t1, t2):
         assert a1 == a2 and r1 == r2 and iguales(o1, o2)
-        assert {k: v for k, v in i1.items() if k != "esbeltez"} == \
-               {k: v for k, v in i2.items() if k != "esbeltez"}
+        assert i1 == i2
 
 
 # --------------------------------------------------------------------------
@@ -72,6 +73,15 @@ def test_reset_determinista():
     assert iguales(o1, o2)
     assert env1.observation_space.contains(o1)
     assert env1.np_random.random() == env2.np_random.random()
+
+
+def test_predicciones_es_copia_de_las_validas():
+    env = GooPhysicsEnv(k=2)
+    env.reset(seed=0)
+    P = env.predicciones()
+    assert set(P) == set(np.flatnonzero(env.action_masks()))
+    P.clear()
+    assert len(env.predicciones()) == 12
 
 
 def test_mascara_s0_tiene_12_acciones():
@@ -127,7 +137,8 @@ def test_step_agrega_nodo_con_largos():
     assert env.G[4][1]["largo"] == 200.0 and env.G[4][2]["largo"] == 100.0
     assert not term and not trunc and r == 0.0
     assert info["m_carga"] == 0 and info["causa"] is None
-    assert math.isnan(info["esbeltez"])
+    assert info["esbeltez"] == esbeltez(env.pos, "apoyo")
+    assert info["esbeltez"] == pytest.approx(info["altura"] / 150.0)
 
 
 # Voladizo construido con acciones k=2 del entorno, sin carga: cada bola

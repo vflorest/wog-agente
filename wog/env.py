@@ -37,7 +37,8 @@ from gymnasium import spaces
 from wog import fisica
 from wog.fisica import K_ESCALA, colocar_bola, crear_espacio, estabilizar, unir
 from wog.geometria import (
-    BOLAS_DISPONIBLES, META_Y, REGLAS_T4, Estado, generar_acciones, largos,
+    BOLAS_DISPONIBLES, META_Y, REGLAS_T4, Estado, esbeltez, generar_acciones,
+    largos,
 )
 
 MAX_NODOS = 4 + BOLAS_DISPONIBLES                     # 18
@@ -57,11 +58,6 @@ class Theta:
     damping: float = fisica.C_DAMP
     masa: float = fisica.MASA
     umbral: float = fisica.MAXFORCE
-
-
-def esbeltez(G, pos):
-    """Stub: la definicion de esbeltez se decide despues."""
-    return float("nan")
 
 
 class GooPhysicsEnv(gym.Env):
@@ -128,6 +124,14 @@ class GooPhysicsEnv(gym.Env):
         """Vector booleano de acciones validas (lo consume MaskablePPO)."""
         return self._mascara.copy()
 
+    def predicciones(self):
+        """
+        Copia de {indice de accion valida: P}, con P la posicion (px) que
+        predice la geometria (generar_acciones con REGLAS_T4) antes de la
+        fisica. Solo lectura: modificarla no altera el entorno.
+        """
+        return dict(self._P)
+
     # ------------------------------------------------------------------
     # Ciclo estandar
     # ------------------------------------------------------------------
@@ -154,7 +158,7 @@ class GooPhysicsEnv(gym.Env):
         self._generar()
         return self._obs(), {"altura": self.altura(),
                              "tension_max": r.pico,
-                             "esbeltez": esbeltez(self.G, self.pos),
+                             "esbeltez": esbeltez(self.pos),
                              "acciones_validas": int(self._mascara.sum()),
                              "causa": None}
 
@@ -221,7 +225,7 @@ class GooPhysicsEnv(gym.Env):
                 "colapso_por": ("propio" if est.rotas else
                                 "carga" if rotas_w else None),
                 "estable": est.estable,
-                "esbeltez": esbeltez(self.G, self.pos),
+                "esbeltez": esbeltez(self.pos),
                 "acciones_validas": int(self._mascara.sum()),
                 "causa": causa}
         return self._obs(), r, self.terminado, False, info
