@@ -1,0 +1,86 @@
+{
+  "descripcion": "A* geometrico sin fisica desde el K4 ideal (Estado.inicial), REGLAS_T4, k=2. g = bolas, h = (META_Y - altura) / MAXLEN.",
+  "meta_y": 600.0,
+  "k": 2,
+  "minimo_bolas": 5,
+  "cota_recompensa": 9,
+  "secuencia": [
+    {
+      "paso": 1,
+      "i": 2,
+      "j": 3,
+      "Li": 100.0,
+      "Lj": 200.0,
+      "lado": -1,
+      "P": [
+        175.0,
+        246.82458365518542
+      ],
+      "altura": 246.82458365518542
+    },
+    {
+      "paso": 2,
+      "i": 3,
+      "j": 4,
+      "Li": 200.0,
+      "Lj": 200.0,
+      "lado": 1,
+      "P": [
+        3.6474508437578805,
+        349.96673748986944
+      ],
+      "altura": 349.96673748986944
+    },
+    {
+      "paso": 3,
+      "i": 4,
+      "j": 5,
+      "Li": 200.0,
+      "Lj": 200.0,
+      "lado": -1,
+      "P": [
+        178.6474508437579,
+        446.79132114505495
+      ],
+      "altura": 446.79132114505495
+    },
+    {
+      "paso": 4,
+      "i": 5,
+      "j": 6,
+      "Li": 200.0,
+      "Lj": 200.0,
+      "lado": 1,
+      "P": [
+        7.294901687515733,
+        549.9334749797389
+      ],
+      "altura": 549.9334749797389
+    },
+    {
+      "paso": 5,
+      "i": 6,
+      "j": 7,
+      "Li": 200.0,
+      "Lj": 100.0,
+      "lado": -1,
+      "P": [
+        78.64745084375778,
+        619.9964019019426
+      ],
+      "altura": 619.9964019019426
+    }
+  ],
+  "con_cierre": {
+    "expandidos": 2081,
+    "generados": 38453,
+    "segundos": 6.453
+  },
+  "sin_cierre": {
+    "minimo_bolas": 5,
+    "misma_secuencia": true,
+    "expandidos": 3964,
+    "generados": 72833,
+    "segundos": 10.811
+  }
+}
