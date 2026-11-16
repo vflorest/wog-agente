@@ -7,8 +7,8 @@ import pytest
 
 from wog.geometria import (
     L_REPOSO, REGLAS_FASE1, REGLAS_GYM_T2, REGLAS_NOTEBOOK, REGLAS_T4,
-    Estado, apice, dist_segmento, envolvente, generar_acciones,
-    holgura_suficiente, interseccion, largos, se_cruzan,
+    Estado, ancho_inferior, apice, dist_segmento, envolvente, esbeltez,
+    generar_acciones, holgura_suficiente, interseccion, largos, se_cruzan,
 )
 
 
@@ -270,3 +270,37 @@ def test_dist_segmento():
 def test_sin_bolas_no_hay_acciones():
     acc, _ = generar_acciones(Estado.inicial(restantes=0), 1, REGLAS_FASE1)
     assert acc == []
+
+
+# --------------------------------------------------------------------------
+# Esbeltez
+# --------------------------------------------------------------------------
+def test_esbeltez_k4_ideal():
+    pos = Estado.inicial().pos
+    for d in ("apoyo", "tercio"):
+        assert ancho_inferior(pos, d) == 150.0
+        assert esbeltez(pos, d) == 1.0
+
+
+def test_esbeltez_apoyo_cuenta_bolas_en_el_suelo():
+    pos = dict(Estado.inicial().pos)
+    pos[4] = (-150.0, 16.0)            # apoyada: 16 <= 0 + 15 + 1
+    assert ancho_inferior(pos, "apoyo") == 300.0
+    pos[4] = (-150.0, 16.5)            # fuera de la tolerancia
+    assert ancho_inferior(pos, "apoyo") == 150.0
+
+
+def test_esbeltez_tercio_y_torre():
+    pos = dict(Estado.inicial().pos)
+    pos[4] = (-150.0, 100.0)           # voladizo bajo
+    pos[5] = (75.0, 450.0)             # altura 450 -> corte en 150
+    assert ancho_inferior(pos, "tercio") == 300.0
+    assert esbeltez(pos, "tercio") == 1.5
+    assert esbeltez(pos, "apoyo") == 3.0
+    # acepta iterables de puntos
+    assert esbeltez(list(pos.values())) == 3.0
+
+
+def test_esbeltez_definicion_desconocida():
+    with pytest.raises(ValueError):
+        esbeltez(Estado.inicial().pos, "otra")

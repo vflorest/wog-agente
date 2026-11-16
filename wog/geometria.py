@@ -131,6 +131,45 @@ def holgura_suficiente(P, i, j, pos, aristas, minimo=R_BOLA):
     return True
 
 
+TOL_APOYO = 1.0    # px: un nodo esta apoyado si y <= Y_SUELO + R_BOLA + TOL_APOYO
+DEFINICIONES_ESBELTEZ = ("apoyo", "tercio")
+
+
+def ancho_inferior(pos, definicion="apoyo"):
+    """
+    Ancho (px) de la parte inferior de la estructura.
+
+    pos: dict nodo -> (x, y) o iterable de puntos (x, y).
+    definicion:
+      "apoyo"  (D1, oficial): extension en x de los nodos apoyados en el
+               suelo, y <= Y_SUELO + R_BOLA + TOL_APOYO. Los nodos fijos 0
+               y 1 (y = 0) siempre cuentan.
+      "tercio" (D2, solo comparacion): extension en x de los nodos con
+               y <= altura / 3, con altura = max y.
+    """
+    pts = list(pos.values()) if isinstance(pos, dict) else list(pos)
+    if definicion == "apoyo":
+        corte = Y_SUELO + R_BOLA + TOL_APOYO
+    elif definicion == "tercio":
+        corte = max(y for _, y in pts) / 3
+    else:
+        raise ValueError(f"definicion desconocida: {definicion!r}")
+    xs = [x for x, y in pts if y <= corte]
+    return max(xs) - min(xs) if xs else 0.0
+
+
+def esbeltez(pos, definicion="apoyo"):
+    """
+    e = altura / ancho de la parte inferior, con altura = centro de la bola
+    mas alta (misma convencion que Estado.altura_max y el entorno).
+    Devuelve inf si el ancho es 0.
+    """
+    pts = list(pos.values()) if isinstance(pos, dict) else list(pos)
+    ancho = ancho_inferior(pts, definicion)
+    altura = max(y for _, y in pts)
+    return altura / ancho if ancho > 0 else math.inf
+
+
 def largos(k):
     """k valores de largo de union, equiespaciados en [MINLEN, MAXLEN]."""
     if k <= 1:
