@@ -44,6 +44,7 @@ uv, Python 3.12, networkx, pymunk, gymnasium. macOS Apple Silicon.
 - `wog/busqueda.py`: `a_estrella` geométrico sin física (g = bolas, h = (META_Y − altura)/MAXLEN). Cierre opcional con clave = posiciones y aristas redondeadas (no fusiona grafos distintos); `cerrar=False` es exacto y da el mismo mínimo.
 - `experiments/baseline.py`: subcomandos `percentiles`, `astar`, `barrido`, `sensibilidad`, `estructuras`, `todo`. Salidas en `experiments/resultados/`.
 - `experiments/visual.py`: GIF de construcción (greedy, A*, D2-2,5) y de un colapso del greedy (umbral ×0,75, p_carga 0,4), comparación de estructuras finales y `chequeos.md`, en `experiments/resultados/visual/`. Instrumenta con una copia exacta del bucle de `estabilizar` (verificado bit a bit contra el entorno).
+- `experiments/en_vivo.py`: Thompson sampling (Beta por plan, juega argmax q̃·R) entre planes fijos (greedy, A*, D2-2,5 y `--intermedio` JSON) en un régimen que el agente no conoce; ventana en vivo (estructura, posteriores, recompensa acumulada vs oráculo). El oráculo estima q con seeds 10000+, separadas de las del agente.
 - Scripts de Taller 2 importan de `wog`. El notebook queda intacto como entregable.
 - `uv run pytest`: los scripts deben reproducir `evidencia/*.txt` byte a byte y el notebook sus salidas guardadas.
 

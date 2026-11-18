@@ -31,10 +31,8 @@ import sys
 from pathlib import Path
 from unittest import mock
 
-import matplotlib
 import numpy as np
 
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt                           # noqa: E402
 from matplotlib import animation                          # noqa: E402
 from matplotlib.collections import LineCollection         # noqa: E402
@@ -229,8 +227,14 @@ def correr(plan, cada, theta=None, p_carga=0.0, seed=0, seguir=False):
                 REC.pausa(PAUSA // 2)
             if term:
                 REC.ctx["causa"] = info["causa"]
-                REC.capturar(env.space, env.uniones, "final",
-                             extra=f"fin: {info['causa']}  r = {r:g}")
+                extra = f"fin: {info['causa']}  r = {r:g}"
+                if info["causa"] == "colapso" and seguir:
+                    # el ultimo cuadro es el de la caida, no el estado real
+                    # (con colapso por carga, la copia rota se descarto)
+                    REC.cuadros.append(dict(REC.cuadros[-1], fase="final",
+                                            extra=extra))
+                else:
+                    REC.capturar(env.space, env.uniones, "final", extra=extra)
                 REC.pausa(3 * PAUSA)
                 break
     return REC, env, infos, Ps, previas
@@ -417,6 +421,7 @@ def main():
     ap.add_argument("--cada", type=int, default=6,
                     help="un cuadro cada N pasos de fisica (DT = 1/60 s)")
     args = ap.parse_args()
+    plt.switch_backend("Agg")       # solo archivos; en_vivo.py usa ventana
     SALIDA.mkdir(parents=True, exist_ok=True)
     (SALIDA / "cuadros").mkdir(exist_ok=True)
     md = ["# Chequeos de la revision visual", "",
