@@ -6,7 +6,7 @@ Uso:
     uv run python experiments/en_vivo.py --umbral 0.75 --p-carga 0.4 \
         --episodios 100 --rapido
     uv run python experiments/en_vivo.py --umbral 1 --p-carga 0.2 \
-        --intermedio experiments/resultados/plan_intermedio.json
+        --plan L6-03.json --plan L7-01.json
 
 Por que un bandido: W nunca cambia el estado, asi que cada plan determinista
 construye siempre la misma estructura y su recompensa por episodio es
@@ -31,16 +31,15 @@ Paneles (se actualizan en cada episodio):
   2. el posterior Beta de exito de cada plan;
   3. la recompensa acumulada del agente contra la del oraculo.
 
-Planes: greedy (D1 e_max=inf), A* y D2 e_max=2.5, mas el intermedio de
---intermedio: un JSON con {"nombre": ..., "acciones": [[i, j, Li, Lj, lado],
-...]} o la lista de acciones sola. El "mejor intermedio" sale de la
-evaluacion de experiments/planes.py; si se elige por regimen, conviene
-fijarlo de antemano (no segun el theta de la corrida) para no filtrarle
-theta al agente.
+Planes: las dos referencias con nombre, greedy y A*, mas los candidatos de
+--plan (se puede repetir): un JSON {"nombre": "L6-#03", "acciones": [[i, j,
+Li, Lj, lado], ...]} o la lista de acciones sola. Los candidatos salen de
+experiments/planes.py y se nombran por largo e indice. Si se eligen segun
+la evaluacion de un regimen, conviene fijarlos de antemano (no segun el
+theta de la corrida) para no filtrarle theta al agente.
 """
 
 import argparse
-import json
 import math
 import sys
 from concurrent.futures import ProcessPoolExecutor
@@ -71,20 +70,11 @@ def beta_pdf(x, a, b):
 # --------------------------------------------------------------------------
 # Planes y episodios
 # --------------------------------------------------------------------------
-def cargar_planes(ruta_intermedio):
-    planes = {nombre: plan for nombre, (_, plan) in
-              zip(("greedy", "A*", "D2-2,5"), visual.planes().values())}
-    if ruta_intermedio:
-        dato = json.loads(Path(ruta_intermedio).read_text())
-        if isinstance(dato, dict):
-            nombre, acciones = dato.get("nombre", "intermedio"), \
-                dato["acciones"]
-        else:
-            nombre, acciones = "intermedio", dato
-        planes[nombre] = [tuple(a) for a in acciones]
-    else:
-        print("aviso: sin --intermedio; se juegan solo greedy, A* y D2-2,5 "
-              "(el mejor intermedio sale de experiments/planes.py)")
+def cargar_planes(rutas):
+    planes = {titulo: plan for titulo, plan in visual.planes(rutas).values()}
+    if not rutas:
+        print("aviso: sin --plan; se juegan solo greedy y A* (los candidatos "
+              "salen de experiments/planes.py)")
     return planes
 
 
@@ -233,7 +223,8 @@ def main():
     ap.add_argument("--episodios", type=int, default=100)
     ap.add_argument("--rapido", action="store_true",
                     help="sin animacion de construccion")
-    ap.add_argument("--intermedio", help="JSON con el plan intermedio")
+    ap.add_argument("--plan", action="append",
+                    help="JSON de un plan candidato (se puede repetir)")
     ap.add_argument("--seed", type=int, default=0,
                     help="seed del primer episodio (luego +1 por episodio)")
     ap.add_argument("--seed-agente", type=int, default=0,
@@ -245,7 +236,7 @@ def main():
     ap.add_argument("--guardar", help="PNG con el estado final de la ventana")
     args = ap.parse_args()
 
-    planes = cargar_planes(args.intermedio)
+    planes = cargar_planes(args.plan)
     R = {k: bolas_al_llegar(p) for k, p in planes.items()}
     regimen = f"umbral ×{args.umbral:g}, p_carga {args.p_carga:g}"
     print(f"oraculo: estimando q con {args.seeds_oraculo} seeds por plan...")

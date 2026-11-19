@@ -4,15 +4,20 @@ Revision visual de la fisica: animaciones GIF y una figura comparativa.
 Uso:
     uv run python experiments/visual.py              # todo
     uv run python experiments/visual.py --cada 6     # un cuadro cada 6 pasos
+    uv run python experiments/visual.py --plan p.json --plan q.json
+
+Planes: las dos referencias con nombre (greedy y A*) y los de --plan, un
+JSON {"nombre": "L6-#03", "acciones": [[i, j, Li, Lj, lado], ...]}. Los
+candidatos de experiments/planes.py se nombran por largo e indice.
 
 Salidas en experiments/resultados/visual/:
-  - construccion_{greedy,astar,d2}.gif : construccion sin carga, con cuadros
+  - construccion_<plan>.gif : construccion sin carga, con cuadros
     DURANTE cada estabilizacion (no solo el estado final de cada paso).
   - colapso_greedy.gif : episodio del greedy con umbral x0.75 y p_carga 0.4
     en una seed donde colapsa al llegar. La prueba de carga W es una fase
     aparte (se aplica sobre una copia y se descarta); en el colapso se marca
     la union rota y se sigue simulando unos segundos sin ella.
-  - comparacion.png : las tres estructuras finales, misma escala y colores.
+  - comparacion.png : las estructuras finales, misma escala y colores.
   - chequeos.md : chequeos automaticos (suelo, cruces, asentamiento, carga en
     nodos fijos, ruptura de la union de mayor tension).
   - cuadros/*.png : cuadros clave para inspeccion.
@@ -193,12 +198,24 @@ def plan_astar():
             for s in sec["secuencia"]]
 
 
-def planes():
-    return {"greedy": ("greedy (D1 e_max=∞)",
-                       plan_politica(PoliticaT4(math.inf, "apoyo"))),
-            "astar": ("A* (5 bolas)", plan_astar()),
-            "d2": ("D2 e_max=2.5",
-                   plan_politica(PoliticaT4(2.5, "tercio")))}
+def cargar_plan(ruta):
+    """(nombre, acciones) de un JSON {"nombre", "acciones"} o una lista."""
+    dato = json.loads(Path(ruta).read_text())
+    if isinstance(dato, dict):
+        nombre, acciones = dato.get("nombre", Path(ruta).stem), dato["acciones"]
+    else:
+        nombre, acciones = Path(ruta).stem, dato
+    return nombre, [tuple(a) for a in acciones]
+
+
+def planes(rutas=()):
+    """{clave: (titulo, acciones)}: greedy, A* y los planes de 'rutas'."""
+    out = {"greedy": ("greedy", plan_politica(PoliticaT4(math.inf, "apoyo"))),
+           "astar": ("A*", plan_astar())}
+    for ruta in rutas or ():
+        nombre, acciones = cargar_plan(ruta)
+        out[nombre] = (nombre, acciones)
+    return out
 
 
 def correr(plan, cada, theta=None, p_carga=0.0, seed=0, seguir=False):
@@ -420,6 +437,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cada", type=int, default=6,
                     help="un cuadro cada N pasos de fisica (DT = 1/60 s)")
+    ap.add_argument("--plan", action="append",
+                    help="JSON de un plan candidato (se puede repetir)")
     args = ap.parse_args()
     plt.switch_backend("Agg")       # solo archivos; en_vivo.py usa ventana
     SALIDA.mkdir(parents=True, exist_ok=True)
@@ -431,7 +450,7 @@ def main():
 
     # 1. Construccion sin carga
     finales = {}
-    for clave, (titulo, plan) in planes().items():
+    for clave, (titulo, plan) in planes(args.plan).items():
         rec, env, infos, Ps, previas = correr(plan, args.cada)
         # la instrumentacion no altera la simulacion
         ref = posiciones_por_paso(plan)[-1]
@@ -513,7 +532,9 @@ def main():
     md.append("")
 
     # 3. Comparacion de las estructuras finales
-    fig, axs = plt.subplots(1, 3, figsize=(15, 6.0), dpi=100)
+    fig, axs = plt.subplots(1, len(finales), figsize=(5 * len(finales), 6.0),
+                            dpi=100, squeeze=False)
+    axs = axs[0]
     fig.patch.set_facecolor(C["fondo"])
     for ax, (titulo, cu, env) in zip(axs, finales.values()):
         dibujar(ax, dict(cu, fase="final", extra=f"{env.restantes} bolas "

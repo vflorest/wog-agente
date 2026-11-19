@@ -2,7 +2,7 @@
 
 Un cuadro cada 6 pasos de fisica (0.10 s). Posiciones en px, centro de la bola.
 
-## greedy (D1 e_max=∞)
+## greedy
 
 - bolas: 5; altura final 613.3 px; causa: meta
 - centro mas bajo de una bola dinamica en TODOS los cuadros: 143.75 px (radio 15; < 15 = penetra el suelo)
@@ -18,7 +18,7 @@ Un cuadro cada 6 pasos de fisica (0.10 s). Posiciones en px, centro de la bola.
 | 4 | (5, 6, 200.0, 100.0, 1) | (-54, 542) | (-83, 531) | 31.1 | 28.2 |
 | 5 | (6, 7, 100.0, 100.0, -1) | (-30, 616) | (-32, 613) | 3.3 | 2.7 |
 
-## A* (5 bolas)
+## A*
 
 - bolas: 5; altura final 609.4 px; causa: meta
 - centro mas bajo de una bola dinamica en TODOS los cuadros: 145.72 px (radio 15; < 15 = penetra el suelo)
@@ -33,25 +33,6 @@ Un cuadro cada 6 pasos de fisica (0.10 s). Posiciones en px, centro de la bola.
 | 3 | (4, 5, 200.0, 200.0, -1) | (180, 444) | (200, 435) | 21.6 | 14.5 |
 | 4 | (5, 6, 200.0, 200.0, 1) | (34, 548) | (12, 544) | 23.1 | 17.7 |
 | 5 | (6, 7, 200.0, 100.0, -1) | (83, 614) | (109, 609) | 25.7 | 22.1 |
-
-## D2 e_max=2.5
-
-- bolas: 8; altura final 618.0 px; causa: meta
-- centro mas bajo de una bola dinamica en TODOS los cuadros: 63.78 px (radio 15; < 15 = penetra el suelo)
-- cruces propios de uniones en la estructura final: [((0, 2), (1, 3))] (las diagonales del K4 base, por diseño)
-- holgura minima bola-union (no extremo): 68.7 px
-- pico de tension/umbral en toda la construccion: 0.363 (cuadro 262, paso 8)
-
-| paso | accion | P predicha | posicion final | |final − P| | max desplazamiento de las previas |
-|---|---|---|---|---|---|
-| 1 | (2, 3, 200.0, 200.0, -1) | (75, 335) | (75, 333) | 1.2 | 0.5 |
-| 2 | (3, 4, 200.0, 100.0, 1) | (-24, 347) | (-30, 344) | 6.5 | 5.1 |
-| 3 | (2, 4, 200.0, 100.0, -1) | (169, 348) | (177, 345) | 9.5 | 8.6 |
-| 4 | (0, 3, 100.0, 100.0, 1) | (-67, 74) | (-69, 71) | 4.2 | 9.6 |
-| 5 | (4, 6, 200.0, 200.0, 1) | (90, 531) | (98, 529) | 8.3 | 6.6 |
-| 6 | (5, 8, 200.0, 100.0, 1) | (-1, 543) | (-14, 539) | 13.7 | 12.5 |
-| 7 | (1, 2, 200.0, 200.0, -1) | (335, 76) | (338, 64) | 12.8 | 28.0 |
-| 8 | (8, 9, 100.0, 100.0, -1) | (75, 620) | (51, 618) | 23.9 | 22.6 |
 
 ## Episodio con colapso (greedy, umbral ×0.75, p_carga 0.4)
 
