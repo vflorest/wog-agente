@@ -6,6 +6,15 @@ Proyecto individual del curso Agentes Inteligentes (UTFSM). Agente que juega Wor
 - Base de 4 bolas (K4), 14 bolas disponibles, meta a 600 px.
 - Para pasar deben quedar al menos 4 bolas sin usar.
 
+## Nivel real (GoingUp)
+- Archivos: `~/Library/Application Support/Steam/steamapps/common/World of Goo/World Of Goo.app/Contents/Resources/game/res/levels/GoingUp/` (`GoingUp.level`, `GoingUp.scene`, `GoingUp.resrc`). XML en texto plano, sin cifrar. Coordenadas del juego con y hacia arriba (gravedad 0,−10).
+- levelexit: pos (0, 514), radius 75. Una bola entra cuando su centro queda a ≤ 75 px. Coincide con el primer vértice de la cañería.
+- Base K4: bolas 0 (−88.5, 98.5), 1 (49.5, 101.5), 2 (39.5, 205.5), 3 (−73.5, 189.5); strands 0-2, 3-2, 2-1, 1-0, 0-3, 3-1. No es un cuadrado de 150 (lados entre 91 y 138 px).
+- ballsrequired = 4; 14 bolas libres (ids 4–17).
+- Suelo: círculo estático "ground", centro (−7, −817), r = 900 (cima y = 83).
+- Boca relativa a la base: Δx = +18,25 desde el centroide de las 4 bolas; Δy = 414 desde el promedio de los centros inferiores (≈ 100).
+- El Taller 5 se entrega con la meta actual (META_Y = 600). El chequeo geométrico de la meta "boca" está en `experiments/meta_real.py` → `experiments/resultados/meta_real.md`. Mínimo de A* (REGLAS_T4, k=2): 2 bolas con nuestra base y 3 con la base real (suelo plano en y=0), contra 5 con meta 600.
+
 ## Acción
 - Colocar una bola anclada a 2 existentes (extensión Henneberg tipo I, preserva rigidez por Laman).
 - Largos parametrizados por k.
